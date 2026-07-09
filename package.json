@@ -1,5 +1,5 @@
 {
-  "name": "swall-transparency-log",
+  "name": "internal-soul-tlog",
   "version": "1.0.0",
   "private": true,
   "description": "SWALL witness signer and STH archive",
