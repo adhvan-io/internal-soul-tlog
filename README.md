@@ -1,12 +1,12 @@
-# swall-transparency-log
+# internal-soul-tlog
 
-Public archive and independent witness for the [SWALL](https://github.com/adhvan-io/swall) transparency log.
+Public archive and independent witness for the [SWALL](https://github.com/adhvan-io/internal-soul) transparency log.
 
 ## What this repo does
 
 Every time SWALL issues a credential, it appends a leaf to a Merkle tree and publishes a **Signed Tree Head (STH)** — a snapshot of the tree root signed with the authority Ed25519 key. That STH is committed to this repo as `sth/{YYYY-MM-DD}/{treeSize}.json`.
 
-Every 10 minutes, a GitHub Actions workflow in this repo:
+Every day, and whenever manually triggered, a GitHub Actions workflow in this repo:
 
 1. Fetches the latest STH from the SWALL API
 2. Verifies the authority signature — refuses to co-sign if it doesn't check out
@@ -45,7 +45,7 @@ Each file:
 }
 ```
 
-Files without `witnessSignature` were committed by the API but not yet co-signed (the witness cron runs every 10 minutes).
+Files without `witnessSignature` were committed by the API but not yet co-signed.
 
 ## Verifying a signature
 
@@ -55,7 +55,7 @@ Using the [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_
 import { canonicalize } from 'json-canonicalize';
 
 const sthFile = await fetch(
-  'https://raw.githubusercontent.com/adhvan-io/swall-transparency-log/main/sth/2026-05-19/904.json'
+  'https://raw.githubusercontent.com/adhvan-io/internal-soul-tlog/main/sth/2026-05-19/904.json'
 ).then(r => r.json());
 
 const payload = new TextEncoder().encode(canonicalize(sthFile.sth));
@@ -65,7 +65,7 @@ const authorityKey = await fetchEd25519Key('https://try.adhvan.io/.well-known/di
 const authorityOk  = await crypto.subtle.verify('Ed25519', authorityKey, fromB64url(sthFile.signature), payload);
 
 // Verify witness signature
-const witnessKey = await fetchEd25519Key('https://try.adhvan.io/.well-known/witness-did.json');
+const witnessKey = await fetchEd25519Key('https://try.adhvan.io/.well-known/witness-swall.json');
 const witnessOk  = await crypto.subtle.verify('Ed25519', witnessKey, fromB64url(sthFile.witnessSignature), payload);
 ```
 
@@ -76,7 +76,7 @@ Both signatures cover the same canonical JSON payload (`json-canonicalize` of th
 The witness public key is published at:
 
 ```
-https://swall-api-836381891643.asia-northeast1.run.app/.well-known/witness-did.json
+https://swall-api-836381891643.asia-northeast1.run.app/.well-known/witness-swall.json
 ```
 
 The signing workflow is `.github/workflows/witness.yml` in this repo. The `WITNESS_PRIVATE_KEY` lives in GitHub Actions Secrets and is never exposed.
