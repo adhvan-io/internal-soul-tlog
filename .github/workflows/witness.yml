@@ -16,7 +16,7 @@ name: SWALL Witness
 #   WITNESS_PRIVATE_KEY  — base64url-encoded raw Ed25519 private key
 #
 # Variables (Settings → Secrets and variables → Actions → Variables):
-#   SWALL_API_BASE  — https://swall-api-836381891643.asia-northeast1.run.app
+#   SWALL_API_BASE  — base URL for the SWALL API service
 
 on:
   schedule:
