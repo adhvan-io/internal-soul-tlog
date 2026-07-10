@@ -13,7 +13,7 @@
  * Required environment variables:
  *   WITNESS_PRIVATE_KEY  — base64url-encoded raw 32-byte Ed25519 private key
  *                          (store in GitHub Secrets, never commit)
- *   SWALL_API_BASE       — e.g. https://swall-api-836381891643.asia-northeast1.run.app
+ *   SWALL_API_BASE       — base URL for the SWALL API service
  *
  * Optional:
  *   WITNESS_KEY_ID       — key identifier to embed in co-signature
