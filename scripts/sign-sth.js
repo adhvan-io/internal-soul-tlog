@@ -4,7 +4,7 @@
  *
  * Steps:
  *   1. GET /swall/log/sth/latest  — fetch the latest Signed Tree Head
- *   2. GET /.well-known/did.json  — fetch SWALL authority public key
+ *   2. GET /.well-known/swall.json  — fetch SWALL authority public key
  *   3. Verify the authority Ed25519 signature (refuse to co-sign invalid STHs)
  *   4. Sign the same STH payload with the witness private key
  *   5. POST /swall/log/sth/witness — submit co-signature to the API
@@ -91,9 +91,9 @@ async function postJSON(url, body) {
   return res.json();
 }
 
-function extractAuthorityPublicKey(didDoc) {
-  const vm = (didDoc.verificationMethod || [])[0];
-  if (!vm) throw new Error('No verificationMethod in authority DID document');
+function extractAuthorityPublicKey(identityDoc) {
+  const vm = (identityDoc.verificationMethod || identityDoc.verificationMethods || [])[0];
+  if (!vm) throw new Error('No verificationMethod in authority identity document');
 
   if (vm.publicKeyMultibase) {
     const decoded = base58Decode(vm.publicKeyMultibase.slice(1)); // strip 'z' prefix
@@ -155,12 +155,12 @@ function updateArchive(sth, witnessSignature, witnessKeyId, witnessedAt) {
   }
 
   // 2. Fetch authority public key
-  const didDoc = await fetchJSON(`${API_BASE}/.well-known/did.json`)
-    .catch(e => fatal(`Failed to fetch authority DID: ${e.message}`));
+  const identityDoc = await fetchJSON(`${API_BASE}/.well-known/swall.json`)
+    .catch(e => fatal(`Failed to fetch authority identity: ${e.message}`));
 
   let authorityPubKeyRaw;
   try {
-    authorityPubKeyRaw = extractAuthorityPublicKey(didDoc);
+    authorityPubKeyRaw = extractAuthorityPublicKey(identityDoc);
   } catch (e) {
     fatal(`Cannot parse authority public key: ${e.message}`);
   }

@@ -17,7 +17,7 @@ Every time SWALL issues a credential, it appends a leaf to a Merkle tree and pub
 Every day, and whenever manually triggered, a GitHub Actions workflow in this repo:
 
 1. Fetches the latest STH from the SWALL API
-2. Verifies the authority signature — refuses to co-sign if it doesn't check out
+2. Resolves the authority identity from `/.well-known/swall.json` and verifies the authority signature — refuses to co-sign if it doesn't check out
 3. Signs the same payload with an **independent witness key**
 4. Posts the co-signature back to the API (stored in Firestore, served to browsers)
 5. Updates the archive file in this repo to add `witnessSignature`
@@ -69,7 +69,7 @@ const sthFile = await fetch(
 const payload = new TextEncoder().encode(canonicalize(sthFile.sth));
 
 // Verify authority signature
-const authorityKey = await fetchEd25519Key('https://try.adhvan.io/.well-known/did.json');
+const authorityKey = await fetchEd25519Key('https://<CANONICAL_SWALL_DOMAIN>/.well-known/swall.json');
 const authorityOk  = await crypto.subtle.verify('Ed25519', authorityKey, fromB64url(sthFile.signature), payload);
 
 // Verify witness signature
