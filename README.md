@@ -8,7 +8,7 @@ It is not a public SWALL release artifact, not a partner-facing package, and not
 
 Public, partner-facing, auditor-facing, or other external materials must be prepared through a separate reviewed extraction process with clean history and explicit disclosure scope.
 
-Public archive and independent witness for the [SWALL](https://github.com/adhvan-io/internal-soul) transparency log.
+Public archive and independent witness for the [SWALL](<SWALL_PLATFORM_REPO>) transparency log.
 
 ## What this repo does
 
@@ -44,11 +44,11 @@ Each file:
     "root": "502834a9d459c0ef...",
     "treeSize": 904,
     "timestamp": "2026-05-19T02:46:08.411Z",
-    "nodeId": "did:web:try.adhvan.io:swall:authority"
+    "nodeId": "<AUTHORITY_NODE_ID>"
   },
   "signature": "K4b3A-dD7UQ3fGL...",
   "witnessSignature": "ozvY-AfbjBhv...",
-  "witnessKeyId": "did:web:...:swall:witness#key-1",
+  "witnessKeyId": "<WITNESS_KEY_ID>",
   "witnessedAt": "2026-05-19T02:50:01.000Z"
 }
 ```
@@ -63,7 +63,7 @@ Using the [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_
 import { canonicalize } from 'json-canonicalize';
 
 const sthFile = await fetch(
-  'https://raw.githubusercontent.com/adhvan-io/internal-soul-tlog/main/sth/2026-05-19/904.json'
+  '<TLOG_ARCHIVE_RAW_URL>'
 ).then(r => r.json());
 
 const payload = new TextEncoder().encode(canonicalize(sthFile.sth));
@@ -73,7 +73,7 @@ const authorityKey = await fetchEd25519Key('https://<CANONICAL_SWALL_DOMAIN>/.we
 const authorityOk  = await crypto.subtle.verify('Ed25519', authorityKey, fromB64url(sthFile.signature), payload);
 
 // Verify witness signature
-const witnessKey = await fetchEd25519Key('https://try.adhvan.io/.well-known/witness-swall.json');
+const witnessKey = await fetchEd25519Key('https://<CANONICAL_SWALL_DOMAIN>/.well-known/witness-swall.json');
 const witnessOk  = await crypto.subtle.verify('Ed25519', witnessKey, fromB64url(sthFile.witnessSignature), payload);
 ```
 
@@ -84,7 +84,7 @@ Both signatures cover the same canonical JSON payload (`json-canonicalize` of th
 The witness public key is published at:
 
 ```
-https://swall-api-836381891643.asia-northeast1.run.app/.well-known/witness-swall.json
+<SWALL_API_BASE>/.well-known/witness-swall.json
 ```
 
 The signing workflow is `.github/workflows/witness.yml` in this repo. The `WITNESS_PRIVATE_KEY` lives in GitHub Actions Secrets and is never exposed.
