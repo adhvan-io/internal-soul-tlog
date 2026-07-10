@@ -56,7 +56,7 @@ jobs:
       - name: Commit witness signature to archive
         run: |
           git config user.name  "swall-witness[bot]"
-          git config user.email "witness-bot@adhvan.io"
+          git config user.email "swall-witness[bot]@users.noreply.github.com"
           git add sth/
           git diff --cached --quiet && echo "Nothing to commit" && exit 0
           git commit -m "witness: tree_size=$(git diff --cached --name-only | grep -o '[0-9]*\.json' | sort -n | tail -1 | tr -d '.json')"
