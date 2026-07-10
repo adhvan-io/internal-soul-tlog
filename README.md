@@ -1,5 +1,13 @@
 # internal-soul-tlog
 
+## Internal ADHVAN Repository Notice
+
+This repository is an internal ADHVAN hardening workspace.
+
+It is not a public SWALL release artifact, not a partner-facing package, and not an external reference implementation. Do not share, publish, fork, export, demo, or quote material from this repository externally without explicit ADHVAN approval.
+
+Public, partner-facing, auditor-facing, or other external materials must be prepared through a separate reviewed extraction process with clean history and explicit disclosure scope.
+
 Public archive and independent witness for the [SWALL](https://github.com/adhvan-io/internal-soul) transparency log.
 
 ## What this repo does
