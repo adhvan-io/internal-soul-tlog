@@ -11,6 +11,7 @@
     "test:protocol": "tsc && node --test dist/protocol/validate.test.js",
     "test:crypto": "tsc && node --test dist/crypto/*.test.js",
     "test:api-client": "tsc && node --test dist/api-client/client.test.js",
+    "test:archive": "tsc && node --test dist/archive/*.test.js",
     "typecheck": "tsc --noEmit",
     "build": "tsc"
   },
