@@ -1,10 +1,13 @@
 # Archive module (Phase 18-H / Stage 5)
 
 Persists an already-authorized witness result to
-`sth/{YYYY-MM-DD}/{treeSize}.json`, ported byte-for-byte from
-`scripts/sign-sth.js`'s `archivePathFor()` and `updateArchive()`. **Not
-wired into the production signing path.** `scripts/sign-sth.js` remains
-completely unchanged and is still what GitHub Actions runs.
+`sth/{YYYY-MM-DD}/{treeSize}.json`, ported byte-for-byte from the original
+JavaScript implementation's `archivePathFor()` and `updateArchive()`. **As
+of Phase 18-J (Stage 7), this module is part of the production signing
+path**, called by `src/witness/witness.ts`. The original
+`scripts/sign-sth.js` is retained unmodified as the regression/parity
+oracle this module was built and verified against; it is no longer
+executed by `.github/workflows/witness.yml`.
 
 ## Responsibility
 

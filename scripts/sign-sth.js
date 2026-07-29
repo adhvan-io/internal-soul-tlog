@@ -1,5 +1,20 @@
 #!/usr/bin/env node
 /**
+ * RETIRED FROM PRODUCTION (Phase 18-J, Stage 7). GitHub Actions now runs
+ * the compiled TypeScript implementation (dist/cli/sign-sth.js, built from
+ * src/witness/ + src/cli/ -- see src/witness/README.md). This file is no
+ * longer executed by .github/workflows/witness.yml.
+ *
+ * It is retained, unmodified and fully functional, as the regression and
+ * behavioral-parity oracle the TypeScript port was built and verified
+ * against across every migration stage -- roughly 150 of this repository's
+ * tests still import or spawn this exact file. Do not delete or relocate
+ * it without first updating every test under test/ and every *.test.ts
+ * file that imports scripts/sign-sth.js or scripts/sign-sth.d.ts.
+ *
+ * Everything below this notice is unchanged from the original production
+ * implementation.
+ *
  * SWALL witness signing script — called by GitHub Actions on each run.
  *
  * Steps:

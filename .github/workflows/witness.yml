@@ -12,6 +12,12 @@ name: SWALL Witness
 #   4. Update sth/{date}/{treeSize}.json in this repo with the witness signature
 #      making the archive a verifiable two-signature record for each tree head
 #
+# Runs the compiled TypeScript witness implementation (built from src/,
+# entrypoint src/cli/sign-sth.ts -- see src/witness/README.md). The
+# original JavaScript implementation (scripts/sign-sth.js) is retained in
+# the repository as the regression/parity oracle the TypeScript port was
+# built and verified against; it is no longer executed here.
+#
 # Secrets (Settings → Secrets and variables → Actions → Secrets):
 #   WITNESS_PRIVATE_KEY  — base64url-encoded raw Ed25519 private key
 #
@@ -45,13 +51,16 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --omit=dev
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
 
       - name: Co-sign STH and update archive
         env:
           WITNESS_PRIVATE_KEY: ${{ secrets.WITNESS_PRIVATE_KEY }}
           SWALL_API_BASE:      ${{ vars.SWALL_API_BASE }}
-        run: node scripts/sign-sth.js
+        run: node dist/cli/sign-sth.js
 
       - name: Commit witness signature to archive
         run: |

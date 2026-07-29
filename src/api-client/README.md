@@ -1,9 +1,12 @@
 # API client module (Phase 18-G / Stage 4)
 
 A typed HTTP boundary for the SWALL API, ported byte-for-byte in behavior
-from `scripts/sign-sth.js`'s `fetchJSON()`/`postJSON()` and their three call
-sites. **Not wired into the production signing path.** `scripts/sign-sth.js`
-remains completely unchanged and is still what GitHub Actions runs.
+from the original JavaScript implementation's `fetchJSON()`/`postJSON()`
+and their three call sites. **As of Phase 18-J (Stage 7), this module is
+part of the production signing path**, called by `src/witness/witness.ts`.
+The original `scripts/sign-sth.js` is retained unmodified as the
+regression/parity oracle this module was built and verified against; it
+is no longer executed by `.github/workflows/witness.yml`.
 
 ## Responsibility
 

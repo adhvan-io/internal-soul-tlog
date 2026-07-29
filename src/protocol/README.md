@@ -1,9 +1,12 @@
 # Protocol module (Phase 18-E / Stage 2)
 
-This module is the canonical specification of the SWALL wire protocol as
-`scripts/sign-sth.js` implements it today. **It is not wired into the
-production signing path.** JavaScript remains the only code that actually
-fetches, verifies, signs, or archives anything.
+This module is the canonical specification of the SWALL wire protocol.
+**As of Phase 18-J (Stage 7), it is part of the production signing path**,
+composed via `src/witness/` and run through `src/cli/sign-sth.ts`
+(`dist/cli/sign-sth.js` in production). The original JavaScript
+implementation, `scripts/sign-sth.js`, is retained unmodified as the
+regression/parity oracle this module was built and verified against; it
+is no longer executed by `.github/workflows/witness.yml`.
 
 ## Trust boundary
 

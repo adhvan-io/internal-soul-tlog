@@ -7,15 +7,15 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test test/*.test.js",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test test/*.test.js dist/protocol/*.test.js dist/crypto/*.test.js dist/api-client/*.test.js dist/archive/*.test.js dist/witness/*.test.js dist/cli/*.test.js",
     "test:protocol": "tsc && node --test dist/protocol/validate.test.js",
     "test:crypto": "tsc && node --test dist/crypto/*.test.js",
     "test:api-client": "tsc && node --test dist/api-client/client.test.js",
     "test:archive": "tsc && node --test dist/archive/*.test.js",
-    "test:witness-ts": "tsc && node --test dist/witness/*.test.js dist/cli/*.test.js",
-    "run:witness-ts": "node dist/cli/sign-sth.js",
-    "typecheck": "tsc --noEmit",
-    "build": "tsc"
+    "test:witness": "tsc && node --test dist/witness/*.test.js dist/cli/*.test.js",
+    "start": "node dist/cli/sign-sth.js"
   },
   "dependencies": {
     "json-canonicalize": "^1.0.6"

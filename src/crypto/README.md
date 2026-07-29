@@ -1,10 +1,11 @@
 # Crypto module (Phase 18-F / Stage 3)
 
-Pure cryptographic primitives, ported byte-identical from
-`scripts/sign-sth.js`. **Not wired into the production signing path.**
-`scripts/sign-sth.js` continues to own every fetch, every archive write,
-and all orchestration — this module only supplies deterministic,
-side-effect-free functions that a *future* orchestration stage will call.
+Pure cryptographic primitives, ported byte-identical from the original
+JavaScript implementation. **As of Phase 18-J (Stage 7), this module is
+part of the production signing path**, called by `src/witness/witness.ts`'s
+orchestration. The original `scripts/sign-sth.js` is retained unmodified
+as the regression/parity oracle this module was built and verified
+against; it is no longer executed by `.github/workflows/witness.yml`.
 
 ## What's here, and why
 
@@ -19,16 +20,16 @@ side-effect-free functions that a *future* orchestration stage will call.
 
 ## What's deliberately NOT here
 
-`extractAuthorityPublicKey()` (deciding whether an `IdentityDocument` uses
-`verificationMethod` or `verificationMethods`, indexing into the array,
-and branching between the multibase and JWK encodings) **stays in
-`scripts/sign-sth.js`** this stage. It's a protocol-resolution function —
-it consumes a whole `IdentityDocument` shape and makes an array/union
-choice — not a pure byte-in/byte-out cryptographic primitive. `did.ts`
-supplies the one piece of that function's logic that *is* pure crypto
-(`parseMultibaseKey`); the JWK branch needs nothing beyond
-`decodeBase64url`, already in `base64url.ts`. The array/union resolution
-itself is deferred to a later orchestration stage.
+`extractAuthorityPublicKey()`'s original logic (deciding whether an
+`IdentityDocument` uses `verificationMethod` or `verificationMethods`,
+indexing into the array, and branching between the multibase and JWK
+encodings) lives in `src/witness/identity.ts`'s `resolveAuthorityPublicKey()`
+(Stage 6), not here. It's a protocol-resolution function — it consumes a
+whole `IdentityDocument` shape and makes an array/union choice — not a
+pure byte-in/byte-out cryptographic primitive. `did.ts` supplies the one
+piece of that function's logic that *is* pure crypto (`parseMultibaseKey`);
+the JWK branch needs nothing beyond `decodeBase64url`, already in
+`base64url.ts`.
 
 Also not here, per this stage's scope: `fetchJSON`/`postJSON` (HTTP),
 `fatal()` (process control), `archivePathFor`/`updateArchive` (filesystem),

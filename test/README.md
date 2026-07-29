@@ -1,9 +1,11 @@
 # Witness behavioral baseline (Phase 18-C / Stage 0)
 
-Run with:
+`npm test` builds and runs this suite together with every other layer
+(protocol/crypto/api-client/archive/witness/cli). To run just this
+JavaScript baseline suite on its own:
 
 ```
-npm test
+node --test test/*.test.js
 ```
 
 (uses Node's built-in `node --test` — no test framework dependency)
@@ -21,10 +23,13 @@ npm test
   signature values in `test/fixtures/synthetic.js` are committed literals,
   not recomputed at test time — that's what makes them a real oracle instead
   of the code testing itself.
-- **These fixtures exist to make a future TypeScript port measurable.** The
-  point of pinning exact bytes now is so a later TypeScript reimplementation
-  can be checked for byte-identical parity against the same fixtures, not
-  just "looks right."
+- **These fixtures made the TypeScript migration (Phases 18-D through 18-J)
+  measurable**, and continue to serve as the frozen, byte-exact regression
+  oracle now that TypeScript (`src/witness/` + `src/cli/`) is the
+  production implementation — see `src/witness/README.md`. The original
+  JavaScript implementation this suite exercises (`scripts/sign-sth.js`)
+  is retained specifically so these fixtures keep having a live oracle to
+  compare against, not just a static expected value.
 - **Production endpoints and archives are never used.** `GITHUB_WORKSPACE` is
   always redirected to a fresh temp directory in every test that writes an
   archive file; the real `sth/` tree in this repository is never touched.

@@ -1,9 +1,13 @@
 # Witness orchestration module (Phase 18-I / Stage 6)
 
 The complete TypeScript witness flow, composing `protocol/`, `crypto/`,
-`api-client/`, and `archive/`. **Not wired into production this stage.**
-`scripts/sign-sth.js` remains completely unchanged and is still what
-GitHub Actions runs — nothing here is reachable from the workflow yet.
+`api-client/`, and `archive/`. **As of Phase 18-J (Stage 7), this is the
+production implementation.** `.github/workflows/witness.yml` runs
+`dist/cli/sign-sth.js` (compiled from `src/cli/sign-sth.ts`, which calls
+`runWitness()` here). The original `scripts/sign-sth.js` is retained
+unmodified as the regression/parity oracle this module was built and
+verified against across every migration stage; it is no longer executed
+by the workflow.
 
 **The witness orchestrator is the policy and composition layer.** It
 decides when an STH is eligible to receive a witness signature by:
@@ -112,30 +116,35 @@ them to the CLI would make it impossible to interleave them correctly with
 the rest of the flow (the same precedent `archive/`'s `updateArchive()`
 already established in Stage 5).
 
-## Documented divergences from JavaScript (found, investigated, not "fixed")
+## Documented divergences from JavaScript — cutover decisions (Phase 18-J)
 
-Two of these were newly discovered by composing the full flow in this
-stage; the third is Stage 4's own already-existing, already-tested
-behavior, surfacing here for the first time in a complete end-to-end run.
-None were altered to force artificial byte-identical parity — doing so
-would mean either weakening `api-client/`'s "every response is validated"
-guarantee (Stage 4) or coupling `protocol/`'s validator messages to one
-specific historical caller's wording (neither is right). All three still
-converge on the same **fail-closed** outcome except where noted.
+Three divergences were found and investigated during Stage 6. Before
+cutover, Stage 7 formally reviewed each individually and decided to
+**intentionally accept** all three, unchanged. None were altered to force
+artificial byte-identical parity — doing so would mean either weakening
+`api-client/`'s "every response is validated" guarantee (Stage 4) or
+coupling `protocol/`'s validator messages to one specific historical
+caller's wording (neither is right). All three still converge on the same
+**fail-closed** outcome except #3.
 
 1. **Missing `sth`/`signature` in the `/latest` response.** JS: a
    dedicated check after a successful fetch throws `"Malformed STH
    response: missing sth or signature"`. TS: Stage 2's protocol parser
    inside `getLatestSTH()` rejects it *during* the fetch, so `runWitness`
    wraps it as `"Failed to fetch STH: Invalid latest STH response: ..."`.
-   Different message text, same fail-closed exit-1 outcome. See
-   `witness.test.ts`'s `DOCUMENTED DIVERGENCE` tests.
+   Different message text, same fail-closed exit-1 outcome.
+   **Decision: intentionally accepted.** This scenario has never occurred
+   in the archive's real history (393 committed STH records, all
+   well-formed); the operationally relevant property — fail closed before
+   any signing — is identical either way. See `witness.test.ts`'s
+   `DOCUMENTED DIVERGENCE` tests.
 2. **Missing/empty `verificationMethod`, or an unsupported shape, in the
    identity document.** Same pattern: JS fails inside
    `extractAuthorityPublicKey()` (`"Cannot parse authority public key:
    ..."`); TS fails earlier, inside `getIdentityDocument()`, wrapped as
    `"Failed to fetch authority identity: Invalid identity document:
-   ..."`. Different message, same outcome. (A verification method with a
+   ..."`. Different message, same outcome. **Decision: intentionally
+   accepted**, same reasoning as #1. (A verification method with a
    *cryptographically* malformed but shape-valid key — e.g. a too-short
    multibase or JWK value — is **not** affected: Stage 2 deliberately
    doesn't validate key correctness, so those cases reach
@@ -148,8 +157,18 @@ converge on the same **fail-closed** outcome except where noted.
    "race occurred" and proceeds to update the archive normally (exit 0).
    TS's `postWitnessSignature()` (Stage 4) rejects the malformed shape
    outright (`runWitness` throws `"Failed to submit co-signature: ..."`,
-   exit 1 at the CLI). This is Stage 4's own already-existing validator
-   behavior, not a new choice made here — see the
+   exit 1 at the CLI). **Decision: intentionally accepted, TS's stricter
+   behavior preserved as-is** — not adjusted to match JS. JS's behavior
+   here is the more concerning one for a transparency-log witness: silently
+   proceeding as if a co-signature was successfully recorded when the
+   server's response can't actually be trusted to mean that is a real gap,
+   not a feature worth replicating. TS failing loudly (exit 1, visible CI
+   failure) on a nonsensical server response is more consistent with this
+   project's own repeatedly-stated fail-closed philosophy than forcing
+   parity with JS's permissiveness would be. This scenario has also never
+   occurred in the archive's history. If the SWALL API is ever found to
+   legitimately send responses this shape in production, that would be
+   grounds to revisit — no such case is known. See the
    `DOCUMENTED DIVERGENCE` test in `witness.test.ts` that runs both
    implementations side by side against the identical malformed fixture
    and shows the different outcomes explicitly.
@@ -174,8 +193,8 @@ All inherited unchanged from earlier stages, each pinned by a specific test:
 guarded by the same `require.main === module` pattern
 `scripts/sign-sth.js` uses, for the same reason: importing it for its
 (non-existent, in this case — it exports nothing) surface must never
-trigger config loading or `process.exit`. It is not referenced by
-`.github/workflows/witness.yml` this stage.
+trigger config loading or `process.exit`. As of Phase 18-J (Stage 7), this
+is the exact command `.github/workflows/witness.yml` runs in production.
 
 ## Test strategy
 
