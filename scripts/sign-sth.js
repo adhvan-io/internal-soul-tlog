@@ -29,12 +29,6 @@ const path = require('path');
 const { createPrivateKey, createPublicKey, sign: cryptoSign, verify: cryptoVerify } = require('crypto');
 const { canonicalize } = require('json-canonicalize');
 
-const API_BASE = (process.env.SWALL_API_BASE || '').replace(/\/$/, '');
-if (!API_BASE) fatal('SWALL_API_BASE env var is required');
-
-const PRIV_B64URL = process.env.WITNESS_PRIVATE_KEY || '';
-if (!PRIV_B64URL) fatal('WITNESS_PRIVATE_KEY env var is required');
-
 // Ed25519 DER wrappers
 const PKCS8_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex');
 const SPKI_PREFIX  = Buffer.from('302a300506032b6570032100', 'hex');
@@ -111,15 +105,25 @@ function fatal(msg) {
   process.exit(1);
 }
 
+// Derives the archive path for a given STH: sth/{YYYY-MM-DD}/{treeSize}.json
+function archivePathFor(sth, repoRoot) {
+  const dateStr = sth.timestamp.split('T')[0]; // YYYY-MM-DD
+  return path.join(repoRoot, 'sth', dateStr, `${sth.treeSize}.json`);
+}
+
+// Same canonical payload used for both authority-signature verification and witness signing.
+function canonicalPayload(sth) {
+  return Buffer.from(canonicalize(sth));
+}
+
 // Updates sth/{YYYY-MM-DD}/{treeSize}.json in this repo with the witness co-signature.
 // The file is written by publishToGitHub() in the SWALL API on every STH creation.
-function updateArchive(sth, witnessSignature, witnessKeyId, witnessedAt) {
-  const repoRoot = process.env.GITHUB_WORKSPACE || path.resolve(__dirname, '..');
-  const dateStr  = sth.timestamp.split('T')[0]; // YYYY-MM-DD
-  const filePath = path.join(repoRoot, 'sth', dateStr, `${sth.treeSize}.json`);
+function updateArchive(sth, witnessSignature, witnessKeyId, witnessedAt, repoRoot = process.env.GITHUB_WORKSPACE || path.resolve(__dirname, '..')) {
+  const filePath = archivePathFor(sth, repoRoot);
+  const relPath  = path.relative(repoRoot, filePath);
 
   if (!fs.existsSync(filePath)) {
-    console.warn(`[witness] Archive file not found: sth/${dateStr}/${sth.treeSize}.json`);
+    console.warn(`[witness] Archive file not found: ${relPath}`);
     console.warn('[witness] API may not have committed it yet — witness signature stored in Firestore only');
     return;
   }
@@ -134,72 +138,96 @@ function updateArchive(sth, witnessSignature, witnessKeyId, witnessedAt) {
   record.witnessKeyId     = witnessKeyId;
   record.witnessedAt      = witnessedAt;
   fs.writeFileSync(filePath, JSON.stringify(record, null, 2) + '\n');
-  console.log(`[witness] Updated archive: sth/${dateStr}/${sth.treeSize}.json`);
+  console.log(`[witness] Updated archive: ${relPath}`);
 }
 
+module.exports = {
+  fromB64url,
+  toB64url,
+  base58Decode,
+  loadPrivateKey,
+  rawBytesToPublicKey,
+  extractAuthorityPublicKey,
+  canonicalPayload,
+  archivePathFor,
+  updateArchive,
+};
+
 // ── Main ──────────────────────────────────────────────────────────────────────
+// Guarded so `require()`-ing this file for its exported helpers (tests) never
+// triggers env-var validation, network calls, or process.exit — only running
+// it directly (`node scripts/sign-sth.js`, as the GitHub Actions workflow does)
+// executes the witness flow below.
 
-(async () => {
-  // 1. Fetch latest STH
-  const sthData = await fetchJSON(`${API_BASE}/swall/log/sth/latest`)
-    .catch(e => fatal(`Failed to fetch STH: ${e.message}`));
+if (require.main === module) {
+  const API_BASE = (process.env.SWALL_API_BASE || '').replace(/\/$/, '');
+  if (!API_BASE) fatal('SWALL_API_BASE env var is required');
 
-  const { sth, signature: authoritySignature } = sthData;
-  if (!sth || !authoritySignature) fatal('Malformed STH response: missing sth or signature');
+  const PRIV_B64URL = process.env.WITNESS_PRIVATE_KEY || '';
+  if (!PRIV_B64URL) fatal('WITNESS_PRIVATE_KEY env var is required');
 
-  // Already co-signed? Update archive only (idempotent re-entry after a push conflict).
-  if (sthData.witnessSignature) {
-    console.log(`[witness] treeSize=${sth.treeSize} already co-signed — updating archive only`);
-    updateArchive(sth, sthData.witnessSignature, sthData.witnessKeyId, sthData.witnessedAt);
-    process.exit(0);
-  }
+  (async () => {
+    // 1. Fetch latest STH
+    const sthData = await fetchJSON(`${API_BASE}/swall/log/sth/latest`)
+      .catch(e => fatal(`Failed to fetch STH: ${e.message}`));
 
-  // 2. Fetch authority public key
-  const identityDoc = await fetchJSON(`${API_BASE}/.well-known/swall.json`)
-    .catch(e => fatal(`Failed to fetch authority identity: ${e.message}`));
+    const { sth, signature: authoritySignature } = sthData;
+    if (!sth || !authoritySignature) fatal('Malformed STH response: missing sth or signature');
 
-  let authorityPubKeyRaw;
-  try {
-    authorityPubKeyRaw = extractAuthorityPublicKey(identityDoc);
-  } catch (e) {
-    fatal(`Cannot parse authority public key: ${e.message}`);
-  }
-  const authorityPubKey = rawBytesToPublicKey(authorityPubKeyRaw);
+    // Already co-signed? Update archive only (idempotent re-entry after a push conflict).
+    if (sthData.witnessSignature) {
+      console.log(`[witness] treeSize=${sth.treeSize} already co-signed — updating archive only`);
+      updateArchive(sth, sthData.witnessSignature, sthData.witnessKeyId, sthData.witnessedAt);
+      process.exit(0);
+    }
 
-  // 3. Verify authority signature — refuse to co-sign an invalid STH
-  const payload    = Buffer.from(canonicalize(sth));
-  const authSigBuf = fromB64url(authoritySignature);
-  const authValid  = cryptoVerify(null, payload, authorityPubKey, authSigBuf);
-  if (!authValid) fatal(`Authority signature invalid for treeSize=${sth.treeSize} — refusing to co-sign`);
+    // 2. Fetch authority public key
+    const identityDoc = await fetchJSON(`${API_BASE}/.well-known/swall.json`)
+      .catch(e => fatal(`Failed to fetch authority identity: ${e.message}`));
 
-  console.log(`[witness] Authority signature verified ✓ treeSize=${sth.treeSize} root=${sth.root.slice(0, 16)}…`);
+    let authorityPubKeyRaw;
+    try {
+      authorityPubKeyRaw = extractAuthorityPublicKey(identityDoc);
+    } catch (e) {
+      fatal(`Cannot parse authority public key: ${e.message}`);
+    }
+    const authorityPubKey = rawBytesToPublicKey(authorityPubKeyRaw);
 
-  // 4. Sign with witness private key
-  const privKey          = loadPrivateKey(PRIV_B64URL);
-  const witnessSigBuf    = cryptoSign(null, payload, privKey);
-  const witnessSignature = toB64url(witnessSigBuf);
+    // 3. Verify authority signature — refuse to co-sign an invalid STH
+    const payload    = canonicalPayload(sth);
+    const authSigBuf = fromB64url(authoritySignature);
+    const authValid  = cryptoVerify(null, payload, authorityPubKey, authSigBuf);
+    if (!authValid) fatal(`Authority signature invalid for treeSize=${sth.treeSize} — refusing to co-sign`);
 
-  const hostMatch = API_BASE.match(/https?:\/\/([^/]+)/);
-  const host      = hostMatch ? hostMatch[1] : 'swall-api';
-  const witnessKeyId =
-    process.env.WITNESS_KEY_ID ||
-    `did:web:${host.replace(/:/g, '%3A')}:swall:witness#key-1`;
+    console.log(`[witness] Authority signature verified ✓ treeSize=${sth.treeSize} root=${sth.root.slice(0, 16)}…`);
 
-  // 5. Submit co-signature to the API (stores in Firestore, served to browsers)
-  const result = await postJSON(`${API_BASE}/swall/log/sth/witness`, {
-    sth,
-    witnessSignature,
-    witnessKeyId,
-  }).catch(e => fatal(`Failed to submit co-signature: ${e.message}`));
+    // 4. Sign with witness private key
+    const privKey          = loadPrivateKey(PRIV_B64URL);
+    const witnessSigBuf    = cryptoSign(null, payload, privKey);
+    const witnessSignature = toB64url(witnessSigBuf);
 
-  const witnessedAt = result.witnessedAt || new Date().toISOString();
+    const hostMatch = API_BASE.match(/https?:\/\/([^/]+)/);
+    const host      = hostMatch ? hostMatch[1] : 'swall-api';
+    const witnessKeyId =
+      process.env.WITNESS_KEY_ID ||
+      `did:web:${host.replace(/:/g, '%3A')}:swall:witness#key-1`;
 
-  if (result.alreadyCosigned) {
-    console.log(`[witness] treeSize=${sth.treeSize} already co-signed (race) — ok`);
-  } else {
-    console.log(`[witness] Co-signed ✓ treeSize=${result.treeSize} at ${witnessedAt}`);
-  }
+    // 5. Submit co-signature to the API (stores in Firestore, served to browsers)
+    const result = await postJSON(`${API_BASE}/swall/log/sth/witness`, {
+      sth,
+      witnessSignature,
+      witnessKeyId,
+    }).catch(e => fatal(`Failed to submit co-signature: ${e.message}`));
 
-  // 6. Update the archive file in this repo with the witness co-signature
-  updateArchive(sth, witnessSignature, witnessKeyId, witnessedAt);
-})();
+    const witnessedAt = result.witnessedAt || new Date().toISOString();
+
+    if (result.alreadyCosigned) {
+      console.log(`[witness] treeSize=${sth.treeSize} already co-signed (race) — ok`);
+    } else {
+      console.log(`[witness] Co-signed ✓ treeSize=${result.treeSize} at ${witnessedAt}`);
+    }
+
+    // 6. Update the archive file in this repo with the witness co-signature
+    updateArchive(sth, witnessSignature, witnessKeyId, witnessedAt);
+  })();
+}
