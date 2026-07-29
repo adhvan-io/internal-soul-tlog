@@ -19,7 +19,7 @@ function startMockServer(routes) {
       const rawBody = Buffer.concat(chunks).toString('utf8');
       let bodyJson;
       try { bodyJson = rawBody ? JSON.parse(rawBody) : undefined; } catch { bodyJson = undefined; }
-      calls.push({ method: req.method, url: req.url, body: bodyJson });
+      calls.push({ method: req.method, url: req.url, headers: { ...req.headers }, body: bodyJson });
 
       const handler = routes[key];
       if (!handler) {
@@ -29,7 +29,15 @@ function startMockServer(routes) {
       }
       try {
         const result = await handler(bodyJson);
-        res.writeHead(result.status || 200, { 'Content-Type': 'application/json' });
+        const status = result.status || 200;
+        // A route may return `rawBody` (a literal response body, e.g. to
+        // simulate a malformed/non-JSON response) instead of `body`.
+        if (typeof result.rawBody === 'string') {
+          res.writeHead(status, { 'Content-Type': result.contentType || 'text/plain' });
+          res.end(result.rawBody);
+          return;
+        }
+        res.writeHead(status, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result.body ?? {}));
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
