@@ -9,6 +9,7 @@
   "scripts": {
     "test": "node --test test/*.test.js",
     "test:protocol": "tsc && node --test dist/protocol/validate.test.js",
+    "test:crypto": "tsc && node --test dist/crypto/*.test.js",
     "typecheck": "tsc --noEmit",
     "build": "tsc"
   },
