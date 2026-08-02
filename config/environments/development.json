@@ -1,0 +1,4 @@
+{
+  "environment": "development",
+  "secretProvider": { "type": "local-file", "path": "config/local/secrets.json" }
+}

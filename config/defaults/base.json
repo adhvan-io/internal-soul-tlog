@@ -1,0 +1,9 @@
+{
+  "$comment": "Checked-in base defaults. Every environment profile merges on top of exactly this object.",
+  "swallApiBase": null,
+  "witnessKeyIdOverride": null,
+  "repoRootOverride": null,
+  "secretRefs": {
+    "witnessPrivateKey": "WITNESS_PRIVATE_KEY"
+  }
+}
