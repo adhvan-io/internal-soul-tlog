@@ -21,6 +21,12 @@ export interface WitnessConfig {
   witnessKeyId: string;
   /** Repository root archive paths are resolved against, from GITHUB_WORKSPACE. */
   repoRoot: string;
+  /**
+   * Optional pin, from SWALL_AUTHORITY_PUBLIC_KEY (base64url, raw 32-byte
+   * Ed25519). When set, the key the audited server serves must equal it, so a
+   * server cannot swap the key it is checked against (audit G6).
+   */
+  authorityPublicKey?: string;
 }
 
 /**
@@ -57,5 +63,7 @@ export function loadWitnessConfig(env: NodeJS.ProcessEnv): WitnessConfig {
   // that occurs in practice. See README.md.
   const repoRoot = env.GITHUB_WORKSPACE ?? process.cwd();
 
-  return { swallApiBase, witnessPrivateKey, witnessKeyId, repoRoot };
+  const authorityPublicKey = env.SWALL_AUTHORITY_PUBLIC_KEY || undefined;
+
+  return { swallApiBase, witnessPrivateKey, witnessKeyId, repoRoot, ...(authorityPublicKey && { authorityPublicKey }) };
 }

@@ -8,11 +8,14 @@
 
 import type { LatestSTHResponse, IdentityDocument, WitnessPostRequest, WitnessPostResponse } from '../protocol/types.js';
 import { parseLatestSTHResponse, parseIdentityDocument, parseWitnessPostResponse } from '../protocol/validate.js';
+import { parseConsistencyResponse } from '../protocol/merkle.js';
 
 export interface SwallApiClient {
   getLatestSTH(): Promise<LatestSTHResponse>;
   getIdentityDocument(): Promise<IdentityDocument>;
   postWitnessSignature(request: WitnessPostRequest): Promise<WitnessPostResponse>;
+  /** Leaf hashes 0..to-1 from GET /swall/log/consistency?from&to (audit G6). */
+  getConsistencyLeaves(from: number, to: number): Promise<string[]>;
 }
 
 export interface SwallApiClientConfig {
@@ -63,5 +66,10 @@ export function createSwallApiClient(config: SwallApiClientConfig): SwallApiClie
     return parseWitnessPostResponse(json);
   }
 
-  return { getLatestSTH, getIdentityDocument, postWitnessSignature };
+  async function getConsistencyLeaves(from: number, to: number): Promise<string[]> {
+    const json = await getJSON(`${baseUrl}/swall/log/consistency?from=${from}&to=${to}`);
+    return parseConsistencyResponse(json, from, to);
+  }
+
+  return { getLatestSTH, getIdentityDocument, postWitnessSignature, getConsistencyLeaves };
 }

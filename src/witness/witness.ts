@@ -16,8 +16,10 @@ import { importPrivateKey, importPublicKey } from '../crypto/keys.js';
 import { signPayload, verifySignature } from '../crypto/ed25519.js';
 import { updateArchive } from '../archive/archive.js';
 import { resolveAuthorityPublicKey } from './identity.js';
+import { checkContinuity, needsConsistency, readWitnessState, writeWitnessState } from './continuity.js';
+import type { SwallApiClient } from '../api-client/index.js';
 import type { WitnessConfig } from './config.js';
-import type { LatestSTHResponse, IdentityDocument, WitnessPostResponse } from '../protocol/types.js';
+import type { LatestSTHResponse, IdentityDocument, WitnessPostResponse, SignedTreeHead } from '../protocol/types.js';
 
 export type WitnessOutcome =
   | { status: 'witnessed'; treeSize: number }
@@ -27,6 +29,25 @@ export type WitnessOutcome =
 export interface WitnessDependencies {
   /** Injectable clock, for deterministic tests of the witnessedAt fallback. Defaults to the real clock. */
   now?: () => string;
+}
+
+/**
+ * Audit G6: refuse a head that does not extend the last one this witness
+ * co-signed (rollback, same-size fork, or leaves that do not rebuild both roots).
+ */
+async function assertExtendsLastSigned(client: SwallApiClient, repoRoot: string, sth: SignedTreeHead): Promise<string> {
+  const prev = readWitnessState(repoRoot);
+  let leaves: string[] | undefined;
+  if (needsConsistency(prev, sth)) {
+    try {
+      leaves = await client.getConsistencyLeaves(prev.treeSize, sth.treeSize);
+    } catch (e) {
+      throw new Error(`Failed to fetch consistency proof ${prev.treeSize} → ${sth.treeSize}: ${(e as Error).message} — refusing to co-sign`);
+    }
+  }
+  const decision = checkContinuity(prev, sth, leaves);
+  if (!decision.ok) throw new Error(`Refusing to co-sign treeSize=${sth.treeSize}: ${decision.reason}`);
+  return decision.reason;
 }
 
 export async function runWitness(config: WitnessConfig, deps: WitnessDependencies = {}): Promise<WitnessOutcome> {
@@ -45,8 +66,11 @@ export async function runWitness(config: WitnessConfig, deps: WitnessDependencie
 
   // 4. Exit early if already witnessed -- identity is never fetched on this path.
   if ('witnessSignature' in latest) {
+    // A head co-signed elsewhere still has to extend ours, or the log forked.
+    await assertExtendsLastSigned(client, config.repoRoot, latest.sth);
     console.log(`[witness] treeSize=${latest.sth.treeSize} already co-signed — updating archive only`);
     updateArchive(latest.sth, latest.witnessSignature, latest.witnessKeyId, latest.witnessedAt, config.repoRoot);
+    writeWitnessState(config.repoRoot, { treeSize: latest.sth.treeSize, root: latest.sth.root, witnessedAt: latest.witnessedAt });
     return { status: 'already-witnessed', treeSize: latest.sth.treeSize };
   }
 
@@ -67,6 +91,9 @@ export async function runWitness(config: WitnessConfig, deps: WitnessDependencie
   } catch (e) {
     throw new Error(`Cannot parse authority public key: ${(e as Error).message}`);
   }
+  if (config.authorityPublicKey && !authorityPubKeyRaw.equals(decodeBase64url(config.authorityPublicKey))) {
+    throw new Error('Served authority key does not match the pinned SWALL_AUTHORITY_PUBLIC_KEY — refusing to co-sign');
+  }
   const authorityPubKey = importPublicKey(authorityPubKeyRaw);
 
   // 7-8. Canonicalize and verify.
@@ -79,6 +106,10 @@ export async function runWitness(config: WitnessConfig, deps: WitnessDependencie
   }
 
   console.log(`[witness] Authority signature verified ✓ treeSize=${sth.treeSize} root=${sth.root.slice(0, 16)}…`);
+
+  // 9b. Fail closed on a rollback or fork, before any witness signature exists.
+  const continuity = await assertExtendsLastSigned(client, config.repoRoot, sth);
+  console.log(`[witness] Continuity ✓ ${continuity}`);
 
   // 10-11. Import witness key and sign.
   const privKey = importPrivateKey(decodeBase64url(config.witnessPrivateKey));
@@ -108,8 +139,9 @@ export async function runWitness(config: WitnessConfig, deps: WitnessDependencie
     console.log(`[witness] Co-signed ✓ treeSize=${result.treeSize} at ${witnessedAt}`);
   }
 
-  // 15. Update the archive.
+  // 15. Update the archive and the last co-signed head.
   updateArchive(sth, witnessSignature, witnessKeyId, witnessedAt, config.repoRoot);
+  writeWitnessState(config.repoRoot, { treeSize: sth.treeSize, root: sth.root, witnessedAt });
 
   // 16. Report the outcome.
   return result.alreadyCosigned
