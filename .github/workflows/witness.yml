@@ -67,13 +67,15 @@ jobs:
           WITNESS_PRIVATE_KEY: ${{ secrets.WITNESS_PRIVATE_KEY }}
           SWALL_API_BASE:      ${{ vars.SWALL_API_BASE }}
           SWALL_AUTHORITY_PUBLIC_KEY: ${{ vars.SWALL_AUTHORITY_PUBLIC_KEY }}
+          # /swall/trust/log once the deployment has frozen v1 (ADR 0041); default /swall/log.
+          SWALL_LOG_PATH: ${{ vars.SWALL_LOG_PATH }}
         run: node dist/cli/sign-sth.js
 
       - name: Commit witness signature to archive
         run: |
           git config user.name  "swall-witness[bot]"
           git config user.email "swall-witness[bot]@users.noreply.github.com"
-          git add sth/
+          git add sth/ trust-log/ 2>/dev/null || git add sth/
           git diff --cached --quiet && echo "Nothing to commit" && exit 0
           git commit -m "witness: tree_size=$(git diff --cached --name-only | grep -o '[0-9]*\.json' | sort -n | tail -1 | tr -d '.json')"
           git pull --rebase origin main

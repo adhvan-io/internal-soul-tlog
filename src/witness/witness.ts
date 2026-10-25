@@ -52,7 +52,7 @@ async function assertExtendsLastSigned(client: SwallApiClient, repoRoot: string,
 
 export async function runWitness(config: WitnessConfig, deps: WitnessDependencies = {}): Promise<WitnessOutcome> {
   const now = deps.now ?? (() => new Date().toISOString());
-  const client = createSwallApiClient({ baseUrl: config.swallApiBase });
+  const client = createSwallApiClient({ baseUrl: config.swallApiBase, logPath: config.logPath });
 
   // 2-3. Fetch latest STH; required-field validation happens inside
   // getLatestSTH() via the Stage 2 protocol parser (see README.md for the
@@ -67,10 +67,10 @@ export async function runWitness(config: WitnessConfig, deps: WitnessDependencie
   // 4. Exit early if already witnessed -- identity is never fetched on this path.
   if ('witnessSignature' in latest) {
     // A head co-signed elsewhere still has to extend ours, or the log forked.
-    await assertExtendsLastSigned(client, config.repoRoot, latest.sth);
+    await assertExtendsLastSigned(client, config.archiveRoot, latest.sth);
     console.log(`[witness] treeSize=${latest.sth.treeSize} already co-signed — updating archive only`);
-    updateArchive(latest.sth, latest.witnessSignature, latest.witnessKeyId, latest.witnessedAt, config.repoRoot);
-    writeWitnessState(config.repoRoot, { treeSize: latest.sth.treeSize, root: latest.sth.root, witnessedAt: latest.witnessedAt });
+    updateArchive(latest.sth, latest.witnessSignature, latest.witnessKeyId, latest.witnessedAt, config.archiveRoot);
+    writeWitnessState(config.archiveRoot, { treeSize: latest.sth.treeSize, root: latest.sth.root, witnessedAt: latest.witnessedAt });
     return { status: 'already-witnessed', treeSize: latest.sth.treeSize };
   }
 
@@ -108,7 +108,7 @@ export async function runWitness(config: WitnessConfig, deps: WitnessDependencie
   console.log(`[witness] Authority signature verified ✓ treeSize=${sth.treeSize} root=${sth.root.slice(0, 16)}…`);
 
   // 9b. Fail closed on a rollback or fork, before any witness signature exists.
-  const continuity = await assertExtendsLastSigned(client, config.repoRoot, sth);
+  const continuity = await assertExtendsLastSigned(client, config.archiveRoot, sth);
   console.log(`[witness] Continuity ✓ ${continuity}`);
 
   // 10-11. Import witness key and sign.
@@ -140,8 +140,8 @@ export async function runWitness(config: WitnessConfig, deps: WitnessDependencie
   }
 
   // 15. Update the archive and the last co-signed head.
-  updateArchive(sth, witnessSignature, witnessKeyId, witnessedAt, config.repoRoot);
-  writeWitnessState(config.repoRoot, { treeSize: sth.treeSize, root: sth.root, witnessedAt });
+  updateArchive(sth, witnessSignature, witnessKeyId, witnessedAt, config.archiveRoot);
+  writeWitnessState(config.archiveRoot, { treeSize: sth.treeSize, root: sth.root, witnessedAt });
 
   // 16. Report the outcome.
   return result.alreadyCosigned

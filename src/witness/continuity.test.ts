@@ -78,7 +78,7 @@ function signedHead(treeSize: number, leaves = LEAVES) {
 }
 
 function config(baseUrl: string, repoRoot: string, extra: Partial<WitnessConfig> = {}): WitnessConfig {
-  return { swallApiBase: baseUrl, witnessPrivateKey: SYNTHETIC_WITNESS.privateKeyB64url, witnessKeyId: WITNESS_KEY_ID, repoRoot, ...extra };
+  return { swallApiBase: baseUrl, witnessPrivateKey: SYNTHETIC_WITNESS.privateKeyB64url, witnessKeyId: WITNESS_KEY_ID, repoRoot, logPath: '/swall/log', archiveRoot: repoRoot, ...extra } as WitnessConfig;
 }
 
 async function setup(t: test.TestContext, latest: object, leaves: string[], prev?: number) {
@@ -134,4 +134,25 @@ test('witness refuses when the served authority key differs from the pinned one'
   assert.equal(posted(server), 0);
   const ok = await runWitness(config(server.url, repoRoot, { authorityPublicKey: SYNTHETIC_AUTHORITY.publicKeyB64url }));
   assert.equal(ok.status, 'witnessed');
+});
+
+test('a witness on the trust log uses its paths and keeps its own archive and state', async (t) => {
+  const latest = signedHead(42);
+  const server = await startMockServer({
+    'GET /swall/trust/log/sth/latest': () => ({ body: latest }),
+    'GET /.well-known/swall.json': () => ({ body: IDENTITY_DOCUMENT_MULTIBASE }),
+    'POST /swall/trust/log/sth/witness': () => ({ body: WITNESS_POST_RESPONSE_SUCCESS }),
+  });
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'internal-soul-tlog-trustpath-'));
+  t.after(async () => { await server.close(); fs.rmSync(repoRoot, { recursive: true, force: true }); });
+  // A v1 state at a larger size must not affect the trust log's own history.
+  writeWitnessState(repoRoot, { treeSize: 99, root: 'f'.repeat(64), witnessedAt: 'v1' });
+  const { loadWitnessConfig } = await import('./config.js');
+  const cfg = loadWitnessConfig({ SWALL_API_BASE: server.url, WITNESS_PRIVATE_KEY: SYNTHETIC_WITNESS.privateKeyB64url, GITHUB_WORKSPACE: repoRoot, SWALL_LOG_PATH: '/swall/trust/log' });
+  assert.equal(cfg.archiveRoot, path.join(repoRoot, 'trust-log'));
+  const outcome = await runWitness(cfg);
+  assert.equal(outcome.status, 'witnessed');
+  assert.equal(readWitnessState(cfg.archiveRoot)?.treeSize, 42);
+  assert.equal(readWitnessState(repoRoot)?.treeSize, 99, 'v1 state untouched');
+  assert.ok(server.calls.every((c) => !c.url.startsWith('/swall/log/')), 'no v1 log paths requested');
 });
