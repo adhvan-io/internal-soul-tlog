@@ -5,6 +5,8 @@
  * (the GITHUB_WORKSPACE fallback -- see repoRoot below).
  */
 
+import * as path from 'node:path';
+
 export interface WitnessConfig {
   /** Normalized (trailing slash stripped), from SWALL_API_BASE. Required. */
   swallApiBase: string;
@@ -21,6 +23,23 @@ export interface WitnessConfig {
   witnessKeyId: string;
   /** Repository root archive paths are resolved against, from GITHUB_WORKSPACE. */
   repoRoot: string;
+  /**
+   * Optional pin, from SWALL_AUTHORITY_PUBLIC_KEY (base64url, raw 32-byte
+   * Ed25519). When set, the key the audited server serves must equal it, so a
+   * server cannot swap the key it is checked against (audit G6).
+   */
+  authorityPublicKey?: string;
+  /**
+   * The log's path on the API, from SWALL_LOG_PATH. Defaults to the v1 log
+   * ('/swall/log'); '/swall/trust/log' is the platform's trust log (ADR 0041).
+   */
+  logPath: string;
+  /**
+   * Where this log's archive and last-signed state live: the repository root
+   * for the v1 log (unchanged layout), a subdirectory per other log, so each
+   * log has its own history and fork check.
+   */
+  archiveRoot: string;
 }
 
 /**
@@ -36,6 +55,14 @@ export function deriveWitnessKeyId(swallApiBase: string, explicit: string | unde
   const hostMatch = swallApiBase.match(/https?:\/\/([^/]+)/);
   const host = hostMatch?.[1] ?? 'swall-api';
   return `did:web:${host.replace(/:/g, '%3A')}:swall:witness#key-1`;
+}
+
+export const DEFAULT_LOG_PATH = '/swall/log';
+
+/** repoRoot for the v1 log; repoRoot/<log name> (e.g. trust-log) for any other. */
+export function archiveRootFor(repoRoot: string, logPath: string): string {
+  if (logPath === DEFAULT_LOG_PATH) return repoRoot;
+  return path.join(repoRoot, logPath.replace(/^\/swall\//, '').replace(/\//g, '-'));
 }
 
 export function loadWitnessConfig(env: NodeJS.ProcessEnv): WitnessConfig {
@@ -57,5 +84,11 @@ export function loadWitnessConfig(env: NodeJS.ProcessEnv): WitnessConfig {
   // that occurs in practice. See README.md.
   const repoRoot = env.GITHUB_WORKSPACE ?? process.cwd();
 
-  return { swallApiBase, witnessPrivateKey, witnessKeyId, repoRoot };
+  const authorityPublicKey = env.SWALL_AUTHORITY_PUBLIC_KEY || undefined;
+
+  const logPath = (env.SWALL_LOG_PATH || DEFAULT_LOG_PATH).replace(/\/$/, '');
+  if (!/^\/[A-Za-z0-9/_-]+$/.test(logPath)) throw new Error('SWALL_LOG_PATH must be an absolute API path like /swall/trust/log');
+  const archiveRoot = archiveRootFor(repoRoot, logPath);
+
+  return { swallApiBase, witnessPrivateKey, witnessKeyId, repoRoot, logPath, archiveRoot, ...(authorityPublicKey && { authorityPublicKey }) };
 }

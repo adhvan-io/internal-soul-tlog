@@ -7,6 +7,9 @@ name: SWALL Witness
 # For each run:
 #   1. Fetch the latest STH from the SWALL API
 #   2. Verify the authority Ed25519 signature
+#   2b. Refuse a rollback or fork: the head must extend the last one this
+#       witness co-signed (sth/witness-state.json, checked with a consistency
+#       proof); see src/witness/README.md
 #   3. Co-sign with the witness private key and POST back to the API
 #      (Firestore stores the witnessSignature; browsers verify it in real time)
 #   4. Update sth/{date}/{treeSize}.json in this repo with the witness signature
@@ -20,6 +23,9 @@ name: SWALL Witness
 #
 # Secrets (Settings → Secrets and variables → Actions → Secrets):
 #   WITNESS_PRIVATE_KEY  — base64url-encoded raw Ed25519 private key
+#
+# Optional variable SWALL_AUTHORITY_PUBLIC_KEY (base64url raw Ed25519) pins the
+# authority key, so the audited server cannot swap the key it is checked against.
 #
 # Variables (Settings → Secrets and variables → Actions → Variables):
 #   SWALL_API_BASE  — base URL for the SWALL API service
@@ -60,13 +66,16 @@ jobs:
         env:
           WITNESS_PRIVATE_KEY: ${{ secrets.WITNESS_PRIVATE_KEY }}
           SWALL_API_BASE:      ${{ vars.SWALL_API_BASE }}
+          SWALL_AUTHORITY_PUBLIC_KEY: ${{ vars.SWALL_AUTHORITY_PUBLIC_KEY }}
+          # /swall/trust/log once the deployment has frozen v1 (ADR 0041); default /swall/log.
+          SWALL_LOG_PATH: ${{ vars.SWALL_LOG_PATH }}
         run: node dist/cli/sign-sth.js
 
       - name: Commit witness signature to archive
         run: |
           git config user.name  "swall-witness[bot]"
           git config user.email "swall-witness[bot]@users.noreply.github.com"
-          git add sth/
+          git add sth/ trust-log/ 2>/dev/null || git add sth/
           git diff --cached --quiet && echo "Nothing to commit" && exit 0
           git commit -m "witness: tree_size=$(git diff --cached --name-only | grep -o '[0-9]*\.json' | sort -n | tail -1 | tr -d '.json')"
           git pull --rebase origin main

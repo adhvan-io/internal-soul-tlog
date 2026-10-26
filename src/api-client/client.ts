@@ -8,11 +8,14 @@
 
 import type { LatestSTHResponse, IdentityDocument, WitnessPostRequest, WitnessPostResponse } from '../protocol/types.js';
 import { parseLatestSTHResponse, parseIdentityDocument, parseWitnessPostResponse } from '../protocol/validate.js';
+import { parseConsistencyResponse } from '../protocol/merkle.js';
 
 export interface SwallApiClient {
   getLatestSTH(): Promise<LatestSTHResponse>;
   getIdentityDocument(): Promise<IdentityDocument>;
   postWitnessSignature(request: WitnessPostRequest): Promise<WitnessPostResponse>;
+  /** Leaf hashes 0..to-1 from GET /swall/log/consistency?from&to (audit G6). */
+  getConsistencyLeaves(from: number, to: number): Promise<string[]>;
 }
 
 export interface SwallApiClientConfig {
@@ -23,6 +26,8 @@ export interface SwallApiClientConfig {
    * client doesn't invent one either.
    */
   baseUrl: string;
+  /** The log's path; defaults to the v1 log, '/swall/log'. */
+  logPath?: string;
   /** Injectable fetch implementation, defaulting to the global fetch. For tests only. */
   fetchImpl?: typeof fetch;
 }
@@ -30,6 +35,7 @@ export interface SwallApiClientConfig {
 export function createSwallApiClient(config: SwallApiClientConfig): SwallApiClient {
   const baseUrl = config.baseUrl.replace(/\/$/, '');
   const fetchImpl = config.fetchImpl ?? fetch;
+  const logPath = config.logPath ?? '/swall/log';
 
   async function getJSON(url: string): Promise<unknown> {
     const res = await fetchImpl(url);
@@ -39,7 +45,7 @@ export function createSwallApiClient(config: SwallApiClientConfig): SwallApiClie
   }
 
   async function getLatestSTH(): Promise<LatestSTHResponse> {
-    const json = await getJSON(`${baseUrl}/swall/log/sth/latest`);
+    const json = await getJSON(`${baseUrl}${logPath}/sth/latest`);
     return parseLatestSTHResponse(json);
   }
 
@@ -49,7 +55,7 @@ export function createSwallApiClient(config: SwallApiClientConfig): SwallApiClie
   }
 
   async function postWitnessSignature(request: WitnessPostRequest): Promise<WitnessPostResponse> {
-    const url = `${baseUrl}/swall/log/sth/witness`;
+    const url = `${baseUrl}${logPath}/sth/witness`;
     const res = await fetchImpl(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -63,5 +69,10 @@ export function createSwallApiClient(config: SwallApiClientConfig): SwallApiClie
     return parseWitnessPostResponse(json);
   }
 
-  return { getLatestSTH, getIdentityDocument, postWitnessSignature };
+  async function getConsistencyLeaves(from: number, to: number): Promise<string[]> {
+    const json = await getJSON(`${baseUrl}${logPath}/consistency?from=${from}&to=${to}`);
+    return parseConsistencyResponse(json, from, to);
+  }
+
+  return { getLatestSTH, getIdentityDocument, postWitnessSignature, getConsistencyLeaves };
 }

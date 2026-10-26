@@ -73,6 +73,8 @@ function baseConfig(baseUrl: string, repoRoot: string): WitnessConfig {
     witnessPrivateKey: SYNTHETIC_WITNESS.privateKeyB64url,
     witnessKeyId: WITNESS_KEY_ID,
     repoRoot,
+    logPath: '/swall/log',
+    archiveRoot: repoRoot,
   };
 }
 

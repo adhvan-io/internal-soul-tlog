@@ -1,0 +1,32 @@
+{
+  "$comment": "Registry of every environment variable the witness config loader accepts. apply-env-overrides.ts is the only consumer of process.env allowed to walk this file.",
+
+  "SWALL_ENV": {
+    "path": "environment",
+    "type": "enum",
+    "values": ["development", "test", "staging", "production"],
+    "required": true,
+    "notes": "New in Phase 6, mirroring internal-soul. Never inferred from GITHUB_WORKSPACE, NODE_ENV, or anything else."
+  },
+  "SWALL_API_BASE": {
+    "path": "swallApiBase",
+    "type": "string",
+    "required": true,
+    "notes": "No default in any environment -- loadWitnessConfig() throws if unset, unchanged behavior (byte-identical to scripts/sign-sth.js)."
+  },
+  "WITNESS_KEY_ID": {
+    "path": "witnessKeyIdOverride",
+    "type": "string",
+    "required": false,
+    "notes": "Explicit override; unset falls back to deriveWitnessKeyId()'s did:web derivation from swallApiBase -- unchanged behavior."
+  },
+  "GITHUB_WORKSPACE": {
+    "path": "repoRootOverride",
+    "type": "string",
+    "required": false,
+    "notes": "GitHub Actions-injected; unset falls back to process.cwd() -- unchanged behavior. Not operator-set directly outside CI."
+  },
+
+  "$secretEnvVars": "Arrives as a GitHub Actions Secret bound directly to the workflow's env: block (deployment topology, unchanged by this phase) -- resolved through the secret provider's env-binding mode, not through apply-env-overrides.ts.",
+  "WITNESS_PRIVATE_KEY": { "path": "secretRefs.witnessPrivateKey", "type": "secret", "required": true }
+}

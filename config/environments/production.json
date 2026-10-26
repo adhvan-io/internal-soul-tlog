@@ -1,0 +1,4 @@
+{
+  "environment": "production",
+  "secretProvider": { "type": "github-actions-secret" }
+}

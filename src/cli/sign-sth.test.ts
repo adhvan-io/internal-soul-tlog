@@ -22,7 +22,11 @@ const CLI_ENTRYPOINT = path.resolve(process.cwd(), 'dist', 'cli', 'sign-sth.js')
 function runCli(env: Record<string, string>): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [CLI_ENTRYPOINT], {
-      env: { PATH: process.env.PATH ?? '', ...env },
+      // SWALL_ENV=test: config/'s loader requires it explicitly (Phase 6),
+      // and 'test' is the one environment where it doesn't itself enforce
+      // secret presence/format, so the original loadWitnessConfig() error
+      // messages these tests assert on still surface unchanged.
+      env: { PATH: process.env.PATH ?? '', SWALL_ENV: 'test', ...env },
     });
     let stdout = '';
     let stderr = '';

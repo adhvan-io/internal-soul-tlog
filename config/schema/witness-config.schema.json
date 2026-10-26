@@ -1,0 +1,29 @@
+{
+  "$comment": "Structural schema for the non-secret witness config, consumed by config/src/validate-witness-config.ts's small hand-written validator (same rationale as internal-soul's — see config/README.md).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["environment", "swallApiBase", "witnessKeyIdOverride", "repoRootOverride", "secretProvider", "secretRefs"],
+  "properties": {
+    "environment": { "type": "string", "enum": ["development", "test", "staging", "production"] },
+    "swallApiBase": { "type": ["string", "null"] },
+    "witnessKeyIdOverride": { "type": ["string", "null"] },
+    "repoRootOverride": { "type": ["string", "null"] },
+    "secretProvider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["local-file", "fixture", "github-actions-secret"] },
+        "path": { "type": "string" }
+      }
+    },
+    "secretRefs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["witnessPrivateKey"],
+      "properties": {
+        "witnessPrivateKey": { "type": "string" }
+      }
+    }
+  }
+}

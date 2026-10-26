@@ -65,17 +65,25 @@ Preserved exactly from `scripts/sign-sth.js`'s main flow:
 2. *(Required-field validation happens inside the fetch, at the protocol
    boundary — see "Documented divergences" below.)*
 3. Exit early if already witnessed — **no identity fetch, no signing, no
-   POST occurs on this path.**
+   POST occurs on this path.** The head must still extend the last co-signed
+   head (step 8b), or the run fails as a fork.
 4. Fetch identity document.
-5. Resolve the authority public key (`identity.ts`).
+5. Resolve the authority public key (`identity.ts`); if
+   `SWALL_AUTHORITY_PUBLIC_KEY` is set, the served key must equal it.
 6. Canonicalize the STH.
 7. **Verify the authority signature.**
 8. Fail closed if invalid — no witness signature is computed past this point.
+8b. **Continuity (audit G6, `continuity.ts`).** Read the last co-signed head
+   from `sth/witness-state.json`. Refuse a smaller tree (rollback) or the same
+   size with another root (fork). For a larger tree, fetch
+   `GET /swall/log/consistency?from&to` and require that its leaves rebuild
+   both the old root and the new one. No state yet: accept and record (trust
+   on first use).
 9. Import the witness private key and sign.
 10. Read the pre-resolved `witnessKeyId`.
 11. POST the co-signature.
 12. Handle an already-cosigned race response.
-13. Update the local archive.
+13. Update the local archive and `sth/witness-state.json`.
 14. Return a `WitnessOutcome`.
 
 ## Fail-closed guarantee
@@ -85,6 +93,15 @@ witness signing, the POST request, or the archive update. Verified
 directly: `witness.test.ts`'s invalid-signature test asserts zero POST
 calls occurred and the archive file is byte-identical to its pre-run
 state.
+
+The same holds for continuity: a rollback, fork, missing or non-matching
+consistency proof, or a served authority key that differs from the pin throws
+before the witness key is used (`continuity.test.ts`).
+
+Still open (audit G6): the witness runs under SWALL's GitHub organisation and
+its key is served by the SWALL API, so it is a SWALL-operated witness, not an
+independent one. ADR 0041's C2SP checkpoints let witnesses outside SWALL
+co-sign instead.
 
 ## Idempotency paths (kept distinct, never conflated)
 
