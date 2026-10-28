@@ -8,7 +8,7 @@ It is not a public SWALL release artifact, not a partner-facing package, and not
 
 Public, partner-facing, auditor-facing, or other external materials must be prepared through a separate reviewed extraction process with clean history and explicit disclosure scope.
 
-Public archive and independent witness for the [SWALL](<SWALL_PLATFORM_REPO>) transparency log.
+Public archive and witness for the [SWALL](<SWALL_PLATFORM_REPO>) transparency log. The witness is operated by SWALL, with its own key; it is not an independent third party. Witnesses outside SWALL are planned, not running.
 
 ## What this repo does
 
@@ -18,11 +18,13 @@ Every day, and whenever manually triggered, a GitHub Actions workflow in this re
 
 1. Fetches the latest STH from the SWALL API
 2. Resolves the authority identity from `/.well-known/swall.json` and verifies the authority signature — refuses to co-sign if it doesn't check out
-3. Signs the same payload with an **independent witness key**
+3. Signs the same payload with a **separate witness key** (held in this repository's Actions secrets, operated by SWALL)
 4. Posts the co-signature back to the API (stored in Firestore, served to browsers)
 5. Updates the archive file in this repo to add `witnessSignature`
 
-The result: each archived STH carries two independent Ed25519 signatures. Anyone can verify both without trusting any server.
+The result: each archived STH carries two Ed25519 signatures from two separate keys, both operated by SWALL. Anyone can verify both without trusting any server; the second key shows that the log did not fork between checks, not that a third party agreed.
+
+**Status:** the SWALL API is offline while the platform is developed locally, so the daily run currently fails and no new tree heads are archived. The archive up to the last successful run stays verifiable.
 
 ## Archive format
 
@@ -91,4 +93,4 @@ The signing workflow is `.github/workflows/witness.yml` in this repo. The `WITNE
 
 ## Why a public witness?
 
-A transparency log is only useful if its append-only property is independently verifiable. The authority signature proves the SWALL server signed a given tree head. The witness signature proves an **independent process** (this GitHub Actions workflow, auditable by anyone) also saw and validated that tree head. Together they make silent log equivocation detectable.
+A transparency log is only useful if its append-only property is independently verifiable. The authority signature proves the SWALL server signed a given tree head. The witness signature proves a **separate process** (this GitHub Actions workflow, auditable by anyone, but still operated by SWALL) also saw and validated that tree head. Together they make silent log equivocation detectable.
