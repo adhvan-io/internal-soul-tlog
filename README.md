@@ -24,7 +24,7 @@ Every day, and whenever manually triggered, a GitHub Actions workflow in this re
 
 The result: each archived STH carries two Ed25519 signatures from two separate keys, both operated by SWALL. Anyone can verify both without trusting any server; the second key shows that the log did not fork between checks, not that a third party agreed.
 
-**Status:** the SWALL API is offline while the platform is developed locally, so the daily run currently fails and no new tree heads are archived. The archive up to the last successful run stays verifiable.
+**Status:** the SWALL API is offline while the platform is developed locally, and the witness workflow runs only when started manually (2026-11-22, to save GitHub Actions usage), so no new tree heads are archived. The archive up to the last successful run stays verifiable.
 
 ## Archive format
 
