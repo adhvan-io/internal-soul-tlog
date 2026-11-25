@@ -14,7 +14,7 @@ Public archive and witness for the [SWALL](<SWALL_PLATFORM_REPO>) transparency l
 
 Every time SWALL issues a credential, it appends a leaf to a Merkle tree and publishes a **Signed Tree Head (STH)** — a snapshot of the tree root signed with the authority Ed25519 key. That STH is committed to this repo as `sth/{YYYY-MM-DD}/{treeSize}.json`.
 
-Every day, and whenever manually triggered, a GitHub Actions workflow in this repo:
+Whenever started manually, a GitHub Actions workflow in this repo:
 
 1. Fetches the latest STH from the SWALL API
 2. Resolves the authority identity from `/.well-known/swall.json` and verifies the authority signature — refuses to co-sign if it doesn't check out
@@ -24,7 +24,7 @@ Every day, and whenever manually triggered, a GitHub Actions workflow in this re
 
 The result: each archived STH carries two Ed25519 signatures from two separate keys, both operated by SWALL. Anyone can verify both without trusting any server; the second key shows that the log did not fork between checks, not that a third party agreed.
 
-**Status:** the SWALL API is offline while the platform is developed locally, so the daily run currently fails and no new tree heads are archived. The archive up to the last successful run stays verifiable.
+**Status:** the SWALL API is offline while the platform is developed locally, and the witness workflow runs only when started manually (2026-11-22, to save GitHub Actions usage), so no new tree heads are archived. The archive up to the last successful run stays verifiable.
 
 ## Archive format
 

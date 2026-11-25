@@ -1,6 +1,6 @@
 name: SWALL Witness
 
-# Runs once a day and on manual trigger.
+# Runs only when started manually (Q-0060; the daily schedule is removed to save GitHub Actions usage).
 # (Reduced from every 10 min while the SWALL API is offline; run manually via
 #  the Actions tab → "Run workflow" during development.)
 #
@@ -31,8 +31,7 @@ name: SWALL Witness
 #   SWALL_API_BASE  — base URL for the SWALL API service
 
 on:
-  schedule:
-    - cron: '0 0 * * *'
+  # Q-0060: manual only; the daily schedule is removed to save GitHub Actions usage.
   workflow_dispatch:
 
 permissions:
